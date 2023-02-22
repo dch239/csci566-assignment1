@@ -70,7 +70,9 @@ class sequential(object):
         for layer in self.layers:
             for n, v in layer.grads.items():
                 ######## TODO ########
-                pass
+                w = layer.params[n]
+                l1_grad = lam * np.sign(w)
+                layer.grads[n] += l1_grad
                 ######## END  ########
     
     def apply_l2_regularization(self, lam):
@@ -80,7 +82,9 @@ class sequential(object):
         for layer in self.layers:
             for n, v in layer.grads.items():
                 ######## TODO ########
-                pass
+                w = layer.params[n]
+                l2_grad = 2 * lam * w
+                layer.grads[n] += l2_grad
                 ######## END  ########
 
 
@@ -361,7 +365,7 @@ class cross_entropy(object):
         # Store the output gradients in the variable dlogit provided above.         #
         #############################################################################
         n_samples = label.shape[0]
-        dlogit = softmax(logit)
+        dlogit = logit.copy()
         dlogit[range(n_samples), label] -= 1
         if self.size_average:
             dlogit /= n_samples

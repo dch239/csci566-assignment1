@@ -45,7 +45,21 @@ class SGD(Optimizer):
             #############################################################################
             # TODO: Implement the SGD with (optional) Weight Decay                      #
             #############################################################################
-            pass
+            # dv += self.weight_decay * layer.params[n]
+            # layer.params[n] -= self.lr * dv
+            w = layer.params[n]
+
+            # Compute the weight decay term (optional)
+            decay = self.weight_decay * w
+
+            # Compute the update term based on the gradient and learning rate
+            update = self.lr * dv
+
+            # Update the weight by subtracting the update term and adding the decay term
+            w -= update + decay
+
+            # Save the updated weight back into the layer
+            layer.params[n] = w
             #############################################################################
             #                             END OF YOUR CODE                              #
             #############################################################################
@@ -68,7 +82,25 @@ class Adam(Optimizer):
         #############################################################################
         # TODO: Implement the Adam with [optinal] Weight Decay                      #
         #############################################################################
-        pass
+        for param_name, param in layer.params.items():
+            if param_name not in self.mt:
+                self.mt[param_name] = np.zeros_like(param.data)
+                self.vt[param_name] = np.zeros_like(param.data)
+
+            grad = layer.grads[param_name]
+
+            if self.weight_decay > 0:
+                w = layer.params[param_name]
+                grad += self.weight_decay * w
+
+            self.t += 1
+            lr_t = self.lr * np.sqrt(1 - self.beta2 ** self.t) / (1 - self.beta1 ** self.t)
+
+            self.mt[param_name] = self.beta1 * self.mt[param_name] + (1 - self.beta1) * grad
+            self.vt[param_name] = self.beta2 * self.vt[param_name] + (1 - self.beta2) * (grad ** 2)
+
+            delta_param = - lr_t * self.mt[param_name] / (np.sqrt(self.vt[param_name]) + self.eps)
+            layer.params[param_name].data += delta_param
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
