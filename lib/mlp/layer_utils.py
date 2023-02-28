@@ -70,9 +70,7 @@ class sequential(object):
         for layer in self.layers:
             for n, v in layer.grads.items():
                 ######## TODO ########
-                w = layer.params[n]
-                l1_grad = lam * np.sign(w)
-                layer.grads[n] += l1_grad
+                layer.grads[n] += lam * np.sign(layer.params[n])
                 ######## END  ########
     
     def apply_l2_regularization(self, lam):
@@ -82,9 +80,7 @@ class sequential(object):
         for layer in self.layers:
             for n, v in layer.grads.items():
                 ######## TODO ########
-                w = layer.params[n]
-                l2_grad = 2 * lam * w
-                layer.grads[n] += l2_grad
+                layer.grads[n] += 2 * lam * layer.params[n]
                 ######## END  ########
 
 

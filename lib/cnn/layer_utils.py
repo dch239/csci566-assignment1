@@ -95,9 +95,9 @@ class sequential(object):
                     print ("Loading Params: {} Shape: {}".format(n, layer.params[n].shape))
 
 class ConvLayer2D(object):
-    def __init__(self, input_channels, kernel_size, number_filters, 
+    def __init__(self, input_channels, kernel_size, number_filters,
                 stride=1, padding=0, init_scale=.02, name="conv"):
-        
+
         self.name = name
         self.w_name = name + "_w"
         self.b_name = name + "_b"
@@ -110,13 +110,13 @@ class ConvLayer2D(object):
 
         self.params = {}
         self.grads = {}
-        self.params[self.w_name] = init_scale * np.random.randn(kernel_size, kernel_size, 
+        self.params[self.w_name] = init_scale * np.random.randn(kernel_size, kernel_size,
                                                                 input_channels, number_filters)
         self.params[self.b_name] = np.zeros(number_filters)
         self.grads[self.w_name] = None
         self.grads[self.b_name] = None
         self.meta = None
-    
+
     def get_output_size(self, input_size):
         '''
         :param input_size - 4-D shape of input image tensor (batch_size, in_height, in_width, in_channels)
@@ -127,7 +127,11 @@ class ConvLayer2D(object):
         # TODO: Implement the calculation to find the output size given the         #
         # parameters of this convolutional layer.                                   #
         #############################################################################
-        pass
+        batch_size, in_height, in_width, in_channels = input_size
+        out_height = (in_height + 2 * self.padding - self.kernel_size) // self.stride + 1
+        out_width = (in_width + 2 * self.padding - self.kernel_size) // self.stride + 1
+        output_shape = (batch_size, out_height, out_width, self.number_filters)
+
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
@@ -145,12 +149,30 @@ class ConvLayer2D(object):
         # TODO: Implement the forward pass of a single convolutional layer.       #
         # Store the results in the variable "output" provided above.                #
         #############################################################################
-        pass
+        batch_size, in_height, in_width, in_channels = img.shape
+        out_height = (in_height + 2 * self.padding - self.kernel_size) // self.stride + 1
+        out_width = (in_width + 2 * self.padding - self.kernel_size) // self.stride + 1
+        output = np.zeros((batch_size, out_height, out_width, self.number_filters))
+
+        x_padded = np.pad(img, ((0, 0), (self.padding, self.padding), (self.padding, self.padding), (0, 0)),
+                          mode='constant')
+        for h in range(out_height):
+            for w in range(out_width):
+                vert_start = h * self.stride
+                vert_end = vert_start + self.kernel_size
+                horiz_start = w * self.stride
+                horiz_end = horiz_start + self.kernel_size
+
+                for c in range(self.number_filters):
+                    conv_slice = x_padded[:, vert_start:vert_end, horiz_start:horiz_end, :]
+                    kernel = self.params[self.w_name][:, :, :, c]
+                    bias = self.params[self.b_name][c]
+                    output[:, h, w, c] = np.sum(conv_slice * kernel, axis=(1, 2, 3)) + bias
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
         self.meta = img
-        
+
         return output
 
 
@@ -160,14 +182,51 @@ class ConvLayer2D(object):
             raise ValueError("No forward function called before for this module!")
 
         dimg, self.grads[self.w_name], self.grads[self.b_name] = None, None, None
-        
+
         #############################################################################
         # TODO: Implement the backward pass of a single convolutional layer.        #
         # Store the computed gradients wrt weights and biases in self.grads with    #
         # corresponding name.                                                       #
         # Store the output gradients in the variable dimg provided above.           #
         #############################################################################
-        pass
+        # Unpack layer parameters and image shape
+        _, input_height, input_width, _ = img.shape
+        _, output_height, output_width, _ = self.get_output_size(img.shape)
+        kernel_size, kernel_size, _, number_filters = self.params[self.w_name].shape
+        stride, padding = self.stride, self.padding
+
+        # Initialize gradients for weights and biases
+        self.grads[self.w_name] = np.zeros_like(self.params[self.w_name])
+        self.grads[self.b_name] = np.zeros_like(self.params[self.b_name])
+
+        # Pad the input image
+        padded_img = np.pad(img, ((0, 0), (padding, padding), (padding, padding), (0, 0)), mode='constant')
+
+        # Initialize gradients for output image
+        dimg = np.zeros_like(padded_img)
+
+        for i in range(number_filters):
+            for j in range(output_height):
+                for k in range(output_width):
+                    # Compute the receptive field
+                    vert_start = j * stride
+                    vert_end = vert_start + kernel_size
+                    horiz_start = k * stride
+                    horiz_end = horiz_start + kernel_size
+
+                    # Slice the input image to the size of the kernel
+                    img_slice = padded_img[:, vert_start:vert_end, horiz_start:horiz_end, :]
+
+                    # Compute gradients for weights, biases, and input image
+                    self.grads[self.w_name][:, :, :, i] += np.sum(
+                        img_slice * dprev[:, j, k, i][:, np.newaxis, np.newaxis, np.newaxis], axis=0)
+                    self.grads[self.b_name][i] += np.sum(dprev[:, j, k, i], axis=0)
+                    dimg[:, vert_start:vert_end, horiz_start:horiz_end, :] += self.params[self.w_name][:, :, :,
+                                                                              i] * dprev[:, j, k, i][:, np.newaxis,
+                                                                                   np.newaxis, np.newaxis]
+
+            # Remove the padding from the output image
+        dimg = dimg[:, padding:-padding, padding:-padding, :]
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
@@ -188,12 +247,23 @@ class MaxPoolingLayer(object):
     def forward(self, img):
         output = None
         assert len(img.shape) == 4, "expected batch of images, but received shape {}".format(img.shape)
-        
+
         #############################################################################
         # TODO: Implement the forward pass of a single maxpooling layer.            #
         # Store your results in the variable "output" provided above.               #
         #############################################################################
-        pass
+        batch_size, input_height, input_width, input_channels = img.shape
+        output_height = int((input_height - self.pool_size) / self.stride) + 1
+        output_width = int((input_width - self.pool_size) / self.stride) + 1
+        output = np.zeros((batch_size, output_height, output_width, input_channels))
+        for i in range(output_height):
+            for j in range(output_width):
+                h_start = i * self.stride
+                h_end = h_start + self.pool_size
+                w_start = j * self.stride
+                w_end = w_start + self.pool_size
+                img_pool = img[:, h_start:h_end, w_start:w_end, :]
+                output[:, i, j, :] = np.amax(img_pool, axis=(1, 2))
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
@@ -213,7 +283,19 @@ class MaxPoolingLayer(object):
         # Store the computed gradients in self.grads with corresponding name.       #
         # Store the output gradients in the variable dimg provided above.           #
         #############################################################################
-        pass
+        for i in range(h_out):
+            for j in range(w_out):
+                h_start = i * self.stride
+                h_end = h_start + h_pool
+                w_start = j * self.stride
+                w_end = w_start + w_pool
+                img_pool = img[:, h_start:h_end, w_start:w_end, :]
+                max_pool = np.amax(img_pool, axis=(1, 2), keepdims=True)
+                # get a boolean mask of the maximum elements in the input
+                mask = (img_pool == max_pool)
+                # multiply the mask with the incoming gradient
+                dimg[:, h_start:h_end, w_start:w_end, :] += mask * dprev[:, i:i + 1, j:j + 1, :]
+
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
