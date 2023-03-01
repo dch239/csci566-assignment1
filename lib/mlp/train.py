@@ -80,6 +80,29 @@ def compute_acc(model, data, labels, num_samples=None, batch_size=100):
     return accuracy
 
 
+def get_preds(model, data, labels, num_samples=None, batch_size=100):
+    N = data.shape[0]
+    if num_samples is not None and N > num_samples:
+        indices = np.random.choice(N, num_samples)
+        N = num_samples
+        data = data[indices]
+        labels = labels[indices]
+
+    num_batches = N // batch_size
+    if N % batch_size != 0:
+        num_batches += 1
+    preds = []
+    for i in tqdm(range(num_batches)):
+        start = i * batch_size
+        end = (i + 1) * batch_size
+        output = model.forward(data[start:end], False)
+        scores = softmax(output)
+        pred = np.argmax(scores, axis=1)
+        preds.append(pred)
+    preds = np.hstack(preds)
+    # accuracy = np.mean(preds == labels)
+    return preds
+
 """ Some comments """
 def train_net(data, model, loss_func, optimizer, batch_size, max_epochs,
               lr_decay=1.0, lr_decay_every=1000, show_every=10, verbose=False,
@@ -153,28 +176,15 @@ def train_net(data, model, loss_func, optimizer, batch_size, max_epochs,
             # Notice: In backward pass, you should enable regularization.               #
             # Store the loss to loss_hist                                               #
             #############################################################################
-            # Compute the forward pass of the model
             scores = model.forward(data_batch)
-
-            # Compute the loss of the model
-            # loss, grad = loss_func(scores, labels_batch)
             loss = loss_func.forward(scores, labels_batch)
             dLoss = loss_func.backward()
             loss_hist.append(loss)
-
-            # Compute the gradient of the model
             model.backward(dLoss, regularization=regularization, reg_lambda=reg_lambda)
-
-            # # Add regularization to the gradient
-            # if regularization == "l1":
-            #     model.add_l1_grad(reg_lambda)
-            # elif regularization == "l2":
-            #     model.add_l2_grad(reg_lambda)
             optimizer.step()
             #############################################################################
             #                             END OF YOUR CODE                              #
             #############################################################################
-
             # Show the training loss
             if verbose and iter % show_every == 0:
                 last_losses = loss_hist[-show_every:]

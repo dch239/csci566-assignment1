@@ -221,7 +221,7 @@ class gelu(object):
         # TODO: Implement the forward pass of GeLU                                  #
         # Store the results in the variable output provided above.                  #
         #############################################################################
-        output = 0.5 * feat * (1 + np.tanh(np.sqrt(2/np.pi) * (feat + 0.044715 * (feat**3))))
+        output = 0.5 * feat * (1 + np.tanh(np.sqrt(2/np.pi) * (feat + 0.044715 * np.power(feat, 3))))
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
@@ -238,8 +238,8 @@ class gelu(object):
         # TODO: Implement the backward pass of GeLU                                 #
         # Store the output gradients in the variable dfeat provided above.          #
         #############################################################################
-        temp = np.sqrt(2 / np.pi) * (feat + 0.044715 * (feat**3))
-        df = 0.5*(1 + np.tanh(temp)) + (feat / (np.sqrt(2*np.pi))) * (0.134145 * (feat**2) + 1) * (1 / (np.cosh(temp)**2))
+        temp = np.sqrt(2 / np.pi) * (feat + 0.044715 * np.power(feat, 3))
+        df = 0.5*(1 + np.tanh(temp)) + (feat / (np.sqrt(2*np.pi))) * (0.134145 * np.power(feat, 2) + 1) * (1 / (np.power(np.cosh(temp), 2)))
         dfeat = dprev * df
         #############################################################################
         #                             END OF YOUR CODE                              #
